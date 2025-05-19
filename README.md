@@ -22,7 +22,7 @@ A real-time fantasy sports draft application built with FastAPI that enables mul
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/fantasy-draft.git
+git clone https://github.com/dmsierra11/fantasy-draft.git
 cd fantasy-draft
 ```
 

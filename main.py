@@ -104,5 +104,6 @@ async def notify_clients():
             "pick": current_pick,
             "next_team": get_next_team(),
             "remaining_players": players,
-            "draft_results": draft_results
+            "draft_results": draft_results,
+            "draft_order": draft_order
         })

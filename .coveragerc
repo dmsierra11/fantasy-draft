@@ -1,0 +1,8 @@
+[run]
+omit = 
+    test_*.py
+    */test_*.py
+    */tests/*
+    */venv/*
+    */__pycache__/*
+    */.*/* 

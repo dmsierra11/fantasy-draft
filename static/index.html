@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fantasy Draft Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .draft-board {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .player-list {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .status {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .team-picks {
+            margin-top: 20px;
+        }
+
+        .player-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .player-item:hover {
+            background: #e9ecef;
+        }
+
+        .player-item.selected {
+            background: #d4edda;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Fantasy Draft Demo</h1>
+    <div class="status" id="status">Waiting to start draft...</div>
+    <button id="startDraft">Start Draft</button>
+    <div class="container">
+        <div class="draft-board">
+            <h2>Draft Board</h2>
+            <div id="teamPicks" class="team-picks"></div>
+        </div>
+        <div class="player-list">
+            <h2>Available Players</h2>
+            <div id="playerList"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let currentTeam = null;
+        let availablePlayers = [];
+        let draftResults = {};
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+                updateUI(data);
+            };
+
+            ws.onclose = function () {
+                console.log('WebSocket connection closed');
+                setTimeout(connectWebSocket, 1000);
+            };
+        }
+
+        function updateUI(data) {
+            // Update status
+            document.getElementById('status').textContent =
+                `Round ${data.round}, Pick ${data.pick + 1}: ${data.next_team}'s turn`;
+
+            // Update available players
+            availablePlayers = data.remaining_players;
+            const playerList = document.getElementById('playerList');
+            playerList.innerHTML = '';
+            availablePlayers.forEach(player => {
+                const div = document.createElement('div');
+                div.className = 'player-item';
+                div.textContent = player;
+                div.onclick = () => selectPlayer(player);
+                playerList.appendChild(div);
+            });
+
+            // Update draft results
+            draftResults = data.draft_results;
+            const teamPicks = document.getElementById('teamPicks');
+            teamPicks.innerHTML = '';
+            Object.entries(draftResults).forEach(([team, players]) => {
+                const teamDiv = document.createElement('div');
+                teamDiv.innerHTML = `<h3>${team}</h3><ul>${players.map(p => `<li>${p}</li>`).join('')}</ul>`;
+                teamPicks.appendChild(teamDiv);
+            });
+        }
+
+        async function selectPlayer(player) {
+            if (!currentTeam) return;
+
+            try {
+                const response = await fetch(`/pick_player/${currentTeam}/${player}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.error) {
+                    alert(data.error);
+                }
+            } catch (error) {
+                console.error('Error selecting player:', error);
+            }
+        }
+
+        async function startDraft() {
+            try {
+                const response = await fetch('/start_draft');
+                const data = await response.json();
+                currentTeam = data.order[0];
+                document.getElementById('startDraft').disabled = true;
+            } catch (error) {
+                console.error('Error starting draft:', error);
+            }
+        }
+
+        document.getElementById('startDraft').onclick = startDraft;
+        connectWebSocket();
+    </script>
+</body>
+
+</html>

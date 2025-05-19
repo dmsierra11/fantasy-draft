@@ -175,13 +175,14 @@ def test_start_draft_wrong_team_count():
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Need exactly 4 teams to start"
     reset_state()
-    # Too many teams
+    
+    # Too many teams - directly modify the registered_teams set
+    from main import registered_teams
     for i in range(5):
-        client.post("/register_team", json={"team_name": f"Team {i}"})
+        registered_teams.add(f"Team {i}")
     resp = client.post("/start_draft")
     assert resp.status_code == 400
-    # Should still say need exactly 4 teams
-    assert "Need exactly 4 teams" in resp.json()["detail"] or "Maximum number of teams" in resp.json()["detail"]
+    assert resp.json()["detail"] == "Need exactly 4 teams to start"
 
 def test_reset_state():
     # Register teams and start draft

@@ -44,7 +44,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 def get_next_team():
     """Returns the next team to pick."""
-    global current_round, current_pick
+    current_round, current_pick
     draft_sequence = draft_order if current_round % 2 != 0 else reverse_order
     return draft_sequence[current_pick % len(teams)]
 

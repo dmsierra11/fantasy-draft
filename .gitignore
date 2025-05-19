@@ -5,9 +5,29 @@ venv/
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 
 # Ignore environment variables
 .env
 
 # Ignore log and cache files
 *.log
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Local development settings
+.DS_Store

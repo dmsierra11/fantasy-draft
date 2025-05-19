@@ -62,6 +62,11 @@
             background: #d4edda;
         }
 
+        .player-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         button {
             background: #007bff;
             color: white;
@@ -81,47 +86,129 @@
             cursor: not-allowed;
         }
 
-        .team-selector {
-            margin: 20px 0;
-            padding: 15px;
+        .team-registration {
             background: white;
+            padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
         }
 
-        .team-selector select {
+        .team-registration input {
             padding: 8px;
             margin-right: 10px;
             border-radius: 4px;
             border: 1px solid #ddd;
         }
 
+        .waiting-room {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .registered-teams {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .team-badge {
+            background: #e3f2fd;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9em;
+        }
+
         .current-team {
             font-weight: bold;
             color: #007bff;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .turn-indicator {
+            background: #28a745;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        .not-your-turn {
+            background: #dc3545;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .player-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .pick-instructions {
+            font-size: 0.9em;
+            color: #666;
         }
     </style>
 </head>
 
 <body>
     <h1>Fantasy Draft Demo</h1>
-    <div class="team-selector">
-        <label for="teamSelect">Select your team: </label>
-        <select id="teamSelect">
-            <option value="">-- Select a team --</option>
-        </select>
-        <span id="currentTeamDisplay"></span>
+
+    <!-- Team Registration -->
+    <div id="teamRegistration" class="team-registration">
+        <h2>Register Your Team</h2>
+        <input type="text" id="teamName" placeholder="Enter your team name">
+        <button id="registerTeam">Register Team</button>
     </div>
-    <div class="status" id="status">Waiting to start draft...</div>
-    <button id="startDraft">Start Draft</button>
-    <div class="container">
-        <div class="draft-board">
-            <h2>Draft Board</h2>
-            <div id="teamPicks" class="team-picks"></div>
-        </div>
-        <div class="player-list">
-            <h2>Available Players</h2>
-            <div id="playerList"></div>
+
+    <!-- Waiting Room -->
+    <div id="waitingRoom" class="waiting-room hidden">
+        <h2>Waiting Room</h2>
+        <div id="registeredTeams" class="registered-teams"></div>
+        <div id="waitingStatus"></div>
+        <button id="startDraft" disabled>Start Draft</button>
+    </div>
+
+    <!-- Draft Interface -->
+    <div id="draftInterface" class="hidden">
+        <div id="turnIndicator" class="turn-indicator hidden"></div>
+        <div class="status" id="status">Waiting to start draft...</div>
+        <div class="container">
+            <div class="draft-board">
+                <h2>Draft Board</h2>
+                <div id="teamPicks" class="team-picks"></div>
+            </div>
+            <div class="player-list">
+                <div class="player-list-header">
+                    <h2>Available Players</h2>
+                    <div id="pickInstructions" class="pick-instructions"></div>
+                </div>
+                <div id="playerList"></div>
+            </div>
         </div>
     </div>
 
@@ -130,7 +217,9 @@
         let currentTeam = null;
         let availablePlayers = [];
         let draftResults = {};
-        let draftOrder = [];
+        let registeredTeams = [];
+        let draftStarted = false;
+        let nextTeam = null;
 
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -159,106 +248,151 @@
         function updateUI(data) {
             console.log('Updating UI with data:', data);
 
-            // Update status
-            document.getElementById('status').textContent =
-                `Round ${data.round}, Pick ${data.pick + 1}: ${data.next_team}'s turn`;
+            // Update registered teams
+            registeredTeams = data.registered_teams;
+            updateRegisteredTeams();
 
-            // Update available players
-            availablePlayers = data.remaining_players;
-            const playerList = document.getElementById('playerList');
-            playerList.innerHTML = '';
-            availablePlayers.forEach(player => {
-                const div = document.createElement('div');
-                div.className = 'player-item';
-                div.textContent = player;
-                div.onclick = () => selectPlayer(player);
-                playerList.appendChild(div);
-            });
+            // Update draft started status
+            draftStarted = data.draft_started;
+            if (draftStarted) {
+                document.getElementById('waitingRoom').classList.add('hidden');
+                document.getElementById('draftInterface').classList.remove('hidden');
+            }
 
-            // Update draft results
-            draftResults = data.draft_results;
-            const teamPicks = document.getElementById('teamPicks');
-            teamPicks.innerHTML = '';
-            Object.entries(draftResults).forEach(([team, players]) => {
-                const teamDiv = document.createElement('div');
-                teamDiv.innerHTML = `<h3>${team}</h3><ul>${players.map(p => `<li>${p}</li>`).join('')}</ul>`;
-                teamPicks.appendChild(teamDiv);
-            });
+            // Update start draft button
+            document.getElementById('startDraft').disabled = !data.can_start_draft;
 
-            // Update team selector if draft order is available
-            if (data.draft_order) {
-                draftOrder = data.draft_order;
-                updateTeamSelector();
+            if (draftStarted) {
+                nextTeam = data.next_team;
+                // Update status
+                document.getElementById('status').textContent =
+                    `Round ${data.round}, Pick ${data.pick + 1}: ${nextTeam}'s turn`;
+
+                // Update turn indicator
+                const turnIndicator = document.getElementById('turnIndicator');
+                if (nextTeam === currentTeam) {
+                    turnIndicator.textContent = "It's your turn to pick!";
+                    turnIndicator.classList.remove('not-your-turn');
+                    turnIndicator.classList.remove('hidden');
+                } else {
+                    turnIndicator.textContent = `Waiting for ${nextTeam} to pick...`;
+                    turnIndicator.classList.add('not-your-turn');
+                    turnIndicator.classList.remove('hidden');
+                }
+
+                // Update pick instructions
+                document.getElementById('pickInstructions').textContent =
+                    nextTeam === currentTeam ? "Click on a player to make your pick" : "Waiting for your turn...";
+
+                // Update available players
+                availablePlayers = data.remaining_players;
+                const playerList = document.getElementById('playerList');
+                playerList.innerHTML = '';
+                availablePlayers.forEach(player => {
+                    const div = document.createElement('div');
+                    div.className = 'player-item';
+                    if (nextTeam !== currentTeam) {
+                        div.classList.add('disabled');
+                    }
+                    div.textContent = player;
+                    div.onclick = () => selectPlayer(player);
+                    playerList.appendChild(div);
+                });
+
+                // Update draft results
+                draftResults = data.draft_results;
+                const teamPicks = document.getElementById('teamPicks');
+                teamPicks.innerHTML = '';
+                Object.entries(draftResults).forEach(([team, players]) => {
+                    const teamDiv = document.createElement('div');
+                    const isCurrentTeam = team === currentTeam;
+                    teamDiv.innerHTML = `
+                        <h3>${team} ${isCurrentTeam ? '(You)' : ''}</h3>
+                        <ul>${players.map(p => `<li>${p}</li>`).join('')}</ul>
+                    `;
+                    teamPicks.appendChild(teamDiv);
+                });
             }
         }
 
-        function updateTeamSelector() {
-            const teamSelect = document.getElementById('teamSelect');
-            teamSelect.innerHTML = '<option value="">-- Select a team --</option>';
-            draftOrder.forEach(team => {
-                const option = document.createElement('option');
-                option.value = team;
-                option.textContent = team;
-                teamSelect.appendChild(option);
+        function updateRegisteredTeams() {
+            const container = document.getElementById('registeredTeams');
+            container.innerHTML = '';
+            registeredTeams.forEach(team => {
+                const badge = document.createElement('div');
+                badge.className = 'team-badge';
+                badge.textContent = team;
+                container.appendChild(badge);
             });
+
+            const waitingStatus = document.getElementById('waitingStatus');
+            waitingStatus.textContent = `Waiting for teams (${registeredTeams.length}/4)...`;
         }
 
-        function updateCurrentTeamDisplay() {
-            const display = document.getElementById('currentTeamDisplay');
-            if (currentTeam) {
-                display.innerHTML = `<span class="current-team">Currently playing as: ${currentTeam}</span>`;
-            } else {
-                display.innerHTML = '';
+        async function registerTeam() {
+            const teamName = document.getElementById('teamName').value.trim();
+            if (!teamName) {
+                alert('Please enter a team name');
+                return;
+            }
+
+            try {
+                const response = await fetch('/register_team', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ team_name: teamName })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail);
+                }
+
+                const data = await response.json();
+                currentTeam = teamName;
+                document.getElementById('teamRegistration').classList.add('hidden');
+                document.getElementById('waitingRoom').classList.remove('hidden');
+            } catch (error) {
+                alert(error.message);
             }
         }
 
         async function selectPlayer(player) {
-            if (!currentTeam) {
-                alert('Please select a team first!');
-                return;
-            }
+            if (!currentTeam || nextTeam !== currentTeam) return;
 
             try {
                 const response = await fetch(`/pick_player/${currentTeam}/${player}`, {
                     method: 'POST'
                 });
-                const data = await response.json();
-                if (data.error) {
-                    alert(data.error);
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail);
                 }
             } catch (error) {
-                console.error('Error selecting player:', error);
+                alert(error.message);
             }
         }
 
         async function startDraft() {
             try {
-                const response = await fetch('/start_draft');
-                const data = await response.json();
-                console.log('Draft started:', data);
-                draftOrder = data.order;
-                updateTeamSelector();
-                document.getElementById('startDraft').disabled = true;
-
-                // Request initial status
-                const statusResponse = await fetch('/get_status');
-                const statusData = await statusResponse.json();
-                updateUI({
-                    ...statusData,
-                    remaining_players: Array.from({ length: 20 }, (_, i) => `Player ${i + 1}`),
-                    draft_results: {},
-                    draft_order: draftOrder
+                const response = await fetch('/start_draft', {
+                    method: 'POST'
                 });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail);
+                }
             } catch (error) {
-                console.error('Error starting draft:', error);
+                alert(error.message);
             }
         }
 
+        document.getElementById('registerTeam').onclick = registerTeam;
         document.getElementById('startDraft').onclick = startDraft;
-        document.getElementById('teamSelect').onchange = function (e) {
-            currentTeam = e.target.value;
-            updateCurrentTeamDisplay();
-        };
         connectWebSocket();
     </script>
 </body>

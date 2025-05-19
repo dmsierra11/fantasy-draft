@@ -15,6 +15,8 @@ A real-time fantasy sports draft application built with FastAPI that enables mul
 - Python 3.7+
 - FastAPI
 - WebSocket support
+- pytest (for testing)
+- flake8 (for linting)
 
 ## Installation
 
@@ -24,9 +26,15 @@ git clone https://github.com/yourusername/fantasy-draft.git
 cd fantasy-draft
 ```
 
-2. Install dependencies:
+2. Create and activate a virtual environment (recommended):
 ```bash
-pip install fastapi uvicorn websockets
+python -m venv venv
+source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
 ```
 
 ## Running the Application
@@ -37,6 +45,29 @@ uvicorn main:app --reload
 ```
 
 The server will start at `http://localhost:8000`
+
+## Testing
+
+Run the test suite:
+```bash
+pytest
+```
+
+Run tests with coverage report:
+```bash
+pytest --cov
+```
+
+## Project Structure
+
+- `main.py`: Core application logic and API endpoints
+- `test_main.py`: Main application tests
+- `test_ws.py`: WebSocket testing utilities
+- `requirements.txt`: Project dependencies
+- `pyproject.toml`: Project configuration
+- `.coveragerc`: Coverage configuration
+- `.github/`: GitHub workflows and templates
+- `.vscode/`: VS Code configuration
 
 ## API Endpoints
 

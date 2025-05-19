@@ -108,7 +108,12 @@
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
+            ws.onopen = function () {
+                console.log('WebSocket connection established');
+            };
+
             ws.onmessage = function (event) {
+                console.log('Received message:', event.data);
                 const data = JSON.parse(event.data);
                 updateUI(data);
             };
@@ -117,9 +122,15 @@
                 console.log('WebSocket connection closed');
                 setTimeout(connectWebSocket, 1000);
             };
+
+            ws.onerror = function (error) {
+                console.error('WebSocket error:', error);
+            };
         }
 
         function updateUI(data) {
+            console.log('Updating UI with data:', data);
+
             // Update status
             document.getElementById('status').textContent =
                 `Round ${data.round}, Pick ${data.pick + 1}: ${data.next_team}'s turn`;
@@ -167,8 +178,18 @@
             try {
                 const response = await fetch('/start_draft');
                 const data = await response.json();
+                console.log('Draft started:', data);
                 currentTeam = data.order[0];
                 document.getElementById('startDraft').disabled = true;
+
+                // Request initial status
+                const statusResponse = await fetch('/get_status');
+                const statusData = await statusResponse.json();
+                updateUI({
+                    ...statusData,
+                    remaining_players: Array.from({ length: 20 }, (_, i) => `Player ${i + 1}`),
+                    draft_results: {}
+                });
             } catch (error) {
                 console.error('Error starting draft:', error);
             }

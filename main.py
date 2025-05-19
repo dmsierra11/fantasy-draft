@@ -40,7 +40,7 @@ draft_started = False
 
 def reset_state():
     """Reset all global state variables to their initial values."""
-    global registered_teams, players, draft_order, reverse_order, draft_results
+    global players, draft_order, reverse_order, draft_results
     global current_round, current_pick, ws_connections, draft_started
     
     registered_teams.clear()

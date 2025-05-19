@@ -38,6 +38,21 @@ current_pick = 0
 ws_connections: List[WebSocket] = []  # Store WebSocket connections
 draft_started = False
 
+def reset_state():
+    """Reset all global state variables to their initial values."""
+    global registered_teams, players, draft_order, reverse_order, draft_results
+    global current_round, current_pick, ws_connections, draft_started
+    
+    registered_teams.clear()
+    players = [f"Player {i}" for i in range(1, 21)]
+    draft_order = []
+    reverse_order = []
+    draft_results = {}
+    current_round = 1
+    current_pick = 0
+    ws_connections = []
+    draft_started = False
+
 @app.get("/")
 async def root():
     """Serve the demo page at the root URL"""
